@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cage Repairs — Ticksheet (v4.2.2)</title>
+  <style>
+    :root{--bg:#121212;--panel:#1a1a1a;--text:#ffffff;--muted:#d4d4d4;--border:#2a2a2a;--orange:#f59e0b;--orange-600:#f97316;--danger:#ef4444;--danger-alt:#ff1f1f;--ok:#32cd32;--ok-alt:#2fbf2f}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;position:relative}
+
+    .page-bg{position:fixed;inset:0;z-index:-1}
+    .page-bg::before{content:"";position:absolute;inset:0;background:url('Vanderlande Teams Background.jpg') center/cover no-repeat;opacity:.18;filter:saturate(1) contrast(1.05)}
+
+    .toolbar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--border)}
+    .logo{display:flex;align-items:center;gap:10px}.brand{height:40px;display:block}
+    @media (max-width:600px){.brand{height:28px}}
+    @media print{.brand{height:32px}}
+    .spacer{flex:1}
+    .btn{background:var(--orange);border:none;color:#111;font-weight:700;padding:8px 14px;border-radius:6px;cursor:pointer;box-shadow:0 1px 0 #0006}
+    .btn:hover{background:var(--orange-600)}
+    .btn.secondary{background:#333;color:#fff}
+
+    h1#pageTitle{margin:12px 16px 0;font-size:22px;font-weight:800;letter-spacing:.5px}
+
+    .container{padding:16px}
+    table{width:100%;border-collapse:collapse;border:1px solid var(--border);background:#0f0f0f}
+    thead th{position:sticky;top:52px;background:#1f1f1f;color:#fff;border-bottom:2px solid var(--border);text-align:left;padding:10px}
+    tbody td,tbody th{padding:10px;border-top:1px solid var(--border);border-right:1px solid var(--border)}
+    tbody tr:last-child td{border-bottom:1px solid var(--border)}
+    th[scope="col"]{font-weight:700}
+    .center{text-align:center}
+    th.rowno{width:56px;text-align:right;padding-right:12px}
+
+    tr.status-ok{background:var(--ok)}
+    tr.status-ok:nth-child(even){background:var(--ok-alt)}
+    tr.status-faulty{background:var(--danger)}
+    tr.status-faulty:nth-child(even){background:var(--danger-alt)}
+
+    .editable{outline:none}
+    .editable:focus{box-shadow:0 0 0 2px #ffffff55 inset}
+
+    .compact tbody td{padding:4px 8px}
+
+    .actions{display:flex;gap:6px;align-items:center;justify-content:center}
+    .chip{border:1px solid #ffffff66;border-radius:6px;padding:5px 10px;color:#fff;background:#0000;cursor:pointer}
+    .chip:hover{background:#ffffff12}
+    .chip-green{background:#16a34a;color:#111;border-color:#0c712f}
+    .chip-green:hover{background:#1fb456}
+    .chip-red{background:#dc2626;color:#fff;border-color:#991b1b}
+    .chip-red:hover{background:#ef3030}
+
+    /* pending confirm note for Not repaired */
+    .actions .pending-note{font-size:12px;font-weight:800;color:#fbbf24;background:#2a2a2a;border:1px solid #6b7280;border-radius:6px;padding:6px 8px;margin-left:8px;white-space:nowrap}
+    .actions .chip[disabled]{opacity:.5; cursor:not-allowed}
+
+    /* footer add-row */
+    tfoot .add-row-cell{cursor:pointer;text-align:center;padding:12px 10px;font-weight:800;color:#fff;background:#1e1e1e;border-top:2px solid var(--border)}
+    tfoot .add-row-cell:hover{background:#2a2a2a}
+
+    @media print{
+      @page{size:A4 portrait; margin:12mm}
+      body{background:#fff;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      .page-bg::before{opacity:.25}
+      .toolbar{display:none}
+      table{border-color:#999;background:#fff}
+      thead th{top:0;background:#f2f2f2;color:#000;border-color:#999}
+      tbody td,tbody th{border-color:#999}
+      .actions .chip{display:none}
+      tfoot{display:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-bg" aria-hidden="true"></div>
+
+  <div class="toolbar">
+    <div class="logo"><img src="vanderlande.jpg" alt="Vanderlande" class="brand"></div>
+    <button class="btn secondary" id="btnImport">Import CSV</button>
+    <input class="hidden" type="file" id="fileInput" accept=".csv,text/csv" />
+    <div class="spacer"></div>
+    <button class="btn" id="btnExport">Export</button>
+    <button class="btn" id="btnPrint">Print</button>
+    <button class="btn" id="btnDensity">Row size</button>
+    <button class="btn" id="btnAddRow">Add row</button>
+  </div>
+
+  <h1 id="pageTitle">CAGE REPAIR LIST</h1>
+
+  <div class="container">
+    <table id="cageTable" aria-label="Cage Repairs Ticksheet">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Cage No</th>
+          <th scope="col">Status</th>
+          <th scope="col">Fault</th>
+          <th scope="col">Repair</th>
+          <th scope="col" class="center">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+      <tfoot>
+        <tr class="add-row-row">
+          <td class="add-row-cell" colspan="6">＋ Add row</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <script>
+    const qs=(s,el=document)=>el.querySelector(s);const qsa=(s,el=document)=>[...el.querySelectorAll(s)];
+    function sanitizeText(s){return (s||'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,' ').replace(/\uFEFF/g,'').trim()}
+    function detectDelimiter(sample){const l=(sample.split(/\r?\n/).find(x=>x.trim())||'');const tests=[',',';','\t','|'].map(d=>({d,c:l.split(d).length-1}));tests.sort((a,b)=>b.c-a.c);return tests[0].c>0?tests[0].d:','}
+    function parseCSV(text){text=sanitizeText(text);const d=detectDelimiter(text);const rows=[];let i=0,f='',r=[],q=false;const pf=()=>{r.push(f);f=''};const pr=()=>{rows.push(r);r=[]};while(i<text.length){const c=text[i];if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++}else{q=false}}else{f+=c}}else{if(c==='"'){q=true}else if(c===d){pf()}else if(c==='\n'){pf();pr()}else if(c==='\r'){}else{f+=c}}i++}if(f.length>0||r.length>0){pf();pr()}while(rows.length&&rows[rows.length-1].every(c=>sanitizeText(c)===''))rows.pop();return{rows,delimiter:d}}
+    function toCSV(rows,delimiter=','){const esc=v=>{const s=(v==null?'':String(v));return /["\n\r,;|\t]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};return rows.map(r=>r.map(esc).join(delimiter)).join('\n')}
+
+    const tb=qs('#tbody');const table=qs('#cageTable');
+    function renumberRows(){ qsa('tbody tr', table).forEach((tr,i)=>{ let cell=tr.querySelector('th.rowno'); if(!cell){ cell=document.createElement('th'); cell.setAttribute('scope','row'); cell.className='rowno'; tr.prepend(cell);} cell.textContent=String(i+1).padStart(3,'0'); }); }
+
+    function makeEditableCell(value){const td=document.createElement('td');const div=document.createElement('div');div.className='editable';div.contentEditable=true;div.textContent=value??'';td.appendChild(div);div.addEventListener('input',()=>{applyRowStyle(td.parentElement)});return td}
+    function makeActionsCell(){
+      const td = document.createElement('td');
+      td.className = 'actions';
+      const repaired = document.createElement('button');
+      repaired.className = 'chip chip-green';
+      repaired.textContent = 'Repaired';
+      repaired.title = 'Mark as repaired (OK)';
+
+      const notRepaired = document.createElement('button');
+      notRepaired.className = 'chip chip-red';
+      notRepaired.textContent = 'Not repaired';
+      notRepaired.title = 'Mark as not repaired (FAULTY)';
+
+      let note;
+      function showPendingNote(){
+        if (!note){
+          note = document.createElement('span');
+          note.className = 'pending-note';
+          note.textContent = "Are you sure? Press 'Not repaired' again to confirm";
+          td.appendChild(note);
+        }
+      }
+      function clearPending(tr){
+        if (tr){ tr.removeAttribute('data-nr-pending'); }
+        repaired.disabled = false;
+        if (note){ note.remove(); note=null; }
+      }
+
+      repaired.addEventListener('click', () => {
+        const tr = td.parentElement;
+        if (tr.hasAttribute('data-nr-pending')){
+          // During pending, only Not repaired is allowed
+          return;
+        }
+        clearPending(tr);
+        setRowState(tr, true);
+      });
+
+      notRepaired.addEventListener('click', () => {
+        const tr = td.parentElement;
+        const isRepaired = (tr.dataset.state === 'repaired' || tr.children[2].querySelector('.editable').textContent.trim().toLowerCase()==='ok');
+        if (isRepaired){
+          if (tr.getAttribute('data-nr-pending') === '1'){
+            clearPending(tr);
+            setRowState(tr, false);
+          } else {
+            tr.setAttribute('data-nr-pending','1');
+            repaired.disabled = true;
+            showPendingNote();
+          }
+        } else {
+          clearPending(tr);
+          setRowState(tr, false);
+        }
+      });
+
+      td.appendChild(repaired);
+      td.appendChild(notRepaired);
+      return td;
+    }
+
+    function setRowState(tr,repaired){ tr.removeAttribute('data-nr-pending');
+      tr.dataset.state=repaired?'repaired':'unrepaired';
+      tr.children[2].querySelector('.editable').textContent=repaired?'OK':'FAULTY';
+      applyRowStyle(tr)
+    }
+    function applyRowStyle(tr){const s=tr.children[2].querySelector('.editable').textContent.trim().toLowerCase();const ok=(s==='ok'||s==='okay'||tr.dataset.state==='repaired');tr.classList.toggle('status-ok',ok);tr.classList.toggle('status-faulty',!ok)}
+
+    function addRow(record={}){const tr=document.createElement('tr');const rn=document.createElement('th');rn.setAttribute('scope','row');rn.className='rowno';rn.textContent='';tr.appendChild(rn);const statusFromComplete=normalizeBool(record['Complete'])?'OK':undefined;tr.appendChild(makeEditableCell(record['Cage No']??record.cageNo??record.cage??''));tr.appendChild(makeEditableCell(statusFromComplete??record['Status']??record.status??'FAULTY'));tr.appendChild(makeEditableCell(record['Fault']??record.fault??''));tr.appendChild(makeEditableCell(record['Repair']??record.repair??''));tr.appendChild(makeActionsCell());tb.appendChild(tr);const isOk=(tr.children[2].querySelector('.editable').textContent.trim().toLowerCase()==='ok');tr.dataset.state=isOk?'repaired':'unrepaired';applyRowStyle(tr);renumberRows()}
+
+    function normalizeBool(v){if(typeof v==='boolean')return v;const s=String(v||'').trim().toLowerCase();return ['1','true','yes','y','ok','✓','✔','checked','complete'].includes(s)}
+    function readTable(){const rows=[];qsa('tbody tr',table).forEach(tr=>{const c=qsa('.editable',tr);rows.push([tr.querySelector('th.rowno')?.textContent||'',c[0]?.textContent.trim()||'',c[1]?.textContent.trim()||'',c[2]?.textContent.trim()||'',c[3]?.textContent.trim()||''])});return rows}
+    function importRowsFromCSV(text){const {rows}=parseCSV(text);if(!rows.length)return;tb.innerHTML='';rows.slice(1).forEach(r=>{addRow({'Cage No':r[0],'Status':r[1],'Fault':r[2],'Repair':r[3]})});renumberRows()}
+
+    qs('#btnImport').addEventListener('click',()=>qs('#fileInput').click());
+    qs('#fileInput').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const reader=new FileReader();reader.onload=ev=>importRowsFromCSV(ev.target.result);reader.readAsText(f);e.target.value=''});
+    qs('#btnExport').addEventListener('click',()=>{const header=['#','Cage No','Status','Fault','Repair'];const rows=[header,...readTable()];const csv=toCSV(rows);const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cage-repairs.csv';a.click();URL.revokeObjectURL(a.href)});
+    qs('#btnPrint').addEventListener('click',()=>window.print());
+    qs('#btnDensity').addEventListener('click',()=>table.classList.toggle('compact'));
+    qs('#btnAddRow').addEventListener('click',()=>{addRow({Status:'FAULTY'})});
+    const addRowCell = document.querySelector('tfoot .add-row-cell'); if(addRowCell){ addRowCell.addEventListener('click', ()=>{ addRow({Status:'FAULTY'}); table.querySelector('tbody tr:last-child')?.scrollIntoView({behavior:'smooth', block:'center'}); }); }
+
+    // initial demo data to illustrate layout
+    ['1','2','3','4','5','6'].forEach((n,i)=>addRow({'Cage No':n, 'Status': i===2?'OK':'FAULTY', 'Fault': i===3?'Misaligned':'Broken latch', 'Repair':'Replace latch'}));
+    renumberRows();
+  </script>
+</body>
+</html>
